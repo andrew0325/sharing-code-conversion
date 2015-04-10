@@ -1,18 +1,22 @@
 #define _CRT_SECURE_NO_WARNINGS
-#define PROGRAM_FILE "1D2P_stencil.cl"
+#define PROGRAM_FILE "1D3P_stencil.cl"
 #define BASIC "stencil_sharing"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#define idx_ofst_x1 89
+#define idx_ofst_x1 111
 #define idx_ofst_x2 17
-#define LENGTH 3000
-#define local_sz 100
+#define idx_ofst_x3 0
+#define LENGTH 2000
+#define local_sz 200
 #define abs_diff(X, Y) (((X) > (Y))? ((X) -(Y)):((Y) - (X)))
-#define max(X, Y) (((X) > (Y))? (X):(Y))
-#define min(X, Y) (((X) < (Y))? (X):(Y))
+#define max2(X, Y) (((X) > (Y))? (X):(Y))
+#define min2(X, Y) (((X) < (Y))? (X):(Y))
+#define max3(X, Y, Z) ((max2((X), (Y))) > (Z)? (max2((X), (Y))):(Z))
+#define min3(X, Y, Z) ((min2((X), (Y))) < (Z)? (min2((X), (Y))):(Z))
+#define mid3(X, Y, Z) ((min2((X), (Y))) < (Z)? (max2((X), (Y))):(max2((min2((X), (Y))), (Z))))
 
 #ifdef MAC
 #include <OpenCL/cl.h>
@@ -21,7 +25,6 @@
 #endif
 
 int main() {
-
    /* Host/device data structures */
    cl_platform_id platform; 
    cl_device_id device;
@@ -38,26 +41,21 @@ int main() {
    FILE* program_handle;
 
    /* Data and buffers */
-   int *a_mat = (int*)malloc(sizeof(int) * (LENGTH + (max(idx_ofst_x1, idx_ofst_x2))));
+   int *a_mat = (int*)malloc(sizeof(int) * (LENGTH + (max3(idx_ofst_x1, idx_ofst_x2, idx_ofst_x3))));
    int *b_mat = (int*)malloc(sizeof(int) * LENGTH);
    int *check_mat = (int*)malloc(sizeof(int) * LENGTH);
    cl_mem a_buffer, b_buffer;
    
    /* Initialize A, B, and check matrices */
    srand((unsigned int)time(0));
-   for(i=0; i<LENGTH + (max(idx_ofst_x1, idx_ofst_x2)); i++){
-//         a_mat[i] = (int)rand() / 100;
-	 if (i % 3 == 1)
-	         a_mat[i] = 200;
-	else if(i % 3 == 2)
-	         a_mat[i] = 300;
-	else
-	         a_mat[i] = 700;
+   for(i=0; i<LENGTH + (max3(idx_ofst_x1, idx_ofst_x2, idx_ofst_x3)); i++){
+         a_mat[i] = (int)rand() / 100;
+        // a_mat[i] = 200;
   }
    
    srand((unsigned int)time(0));
    for(i=0; i < LENGTH; i++){
-         b_mat[i] = a_mat[1 * i + idx_ofst_x1] + a_mat[1 * i + idx_ofst_x2];
+         b_mat[i] = a_mat[1 * i + idx_ofst_x1] + a_mat[1 * i + idx_ofst_x2] + a_mat[1 * i + idx_ofst_x3];
    }
    err = clGetPlatformIDs(1, &platform, NULL);
    if(err < 0){
@@ -81,7 +79,7 @@ int main() {
         exit(1);
    }
    // Create Buffer 
-   a_buffer = clCreateBuffer(context, CL_MEM_READ_ONLY , sizeof(int)*(LENGTH + (max(idx_ofst_x1, idx_ofst_x2))), NULL, &err);
+   a_buffer = clCreateBuffer(context, CL_MEM_READ_ONLY , sizeof(int)*(LENGTH + (max3(idx_ofst_x1, idx_ofst_x2, idx_ofst_x3))), NULL, &err);
    if(err < 0){
         perror("A Buffer is not creatl_ed successfully.");
         exit(1);    
@@ -92,7 +90,7 @@ int main() {
         exit(1);    
    }
    //Write into Buffer
-   clEnqueueWriteBuffer(queue, a_buffer, CL_TRUE, 0, sizeof(int)*(LENGTH + (max(idx_ofst_x1, idx_ofst_x2))), a_mat, 0, NULL, NULL);
+   clEnqueueWriteBuffer(queue, a_buffer, CL_TRUE, 0, sizeof(int)*(LENGTH + (max3(idx_ofst_x1, idx_ofst_x2, idx_ofst_x3))), a_mat, 0, NULL, NULL);
    if(err < 0){
       perror("Couldn't write into the Buffer.");
       exit(1);
