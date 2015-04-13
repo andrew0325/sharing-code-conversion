@@ -8,10 +8,10 @@
 #define max3(X, Y, Z) ((max2((X), (Y))) > (Z)? (max2((X), (Y))):(Z))
 #define min3(X, Y, Z) ((min2((X), (Y))) < (Z)? (min2((X), (Y))):(Z))
 #define mid3(X, Y, Z) ((min2((X), (Y))) < (Z)? (max2((X), (Y))):(max2((min2((X), (Y))), (Z))))
-#define b_width 120
-#define b_height 120
-#define l_width 20
-#define l_height 20
+#define b_width 1024
+#define b_height 1024
+#define l_width 16
+#define l_height 16
 #define a_height (b_height + (abs_diff(idx_ofst_y1, idx_ofst_y2)))
 #define a_width (b_width + (abs_diff(idx_ofst_x1, idx_ofst_x2)))
 #define abs(X) (((X) < 0)? (0 - (X)):(X))
@@ -24,13 +24,13 @@ __kernel void stencil(__global int *A, __global int *B)
 {
 	int xid = get_global_id(0);
 	int yid = get_global_id(1);
-	for(int i = 0; i < 100000000; i++){
+//	for(int i = 0; i < 3; i++){
 		B[yid * b_width + xid] =  A[(yid + adj_y) * a_width + (xid + adj_x)] 
 					+ A[(yid + adj_y) * a_width + (xid + adj_x + idx_ofst_x1)]
 					+ A[(yid + adj_y) * a_width + (xid + adj_x + idx_ofst_x2)]
 					+ A[(yid + adj_y + idx_ofst_y1) * a_width + (xid + adj_x)]
 					+ A[(yid + adj_y + idx_ofst_y2) * a_width + (xid + adj_x)];
-	}
+//	}
 }
 
 __kernel void stencil_sharing(__global int *A, __global int *B, __local int *shr_A)
@@ -64,12 +64,12 @@ __kernel void stencil_sharing(__global int *A, __global int *B, __local int *shr
 	else
 		shr_A[(l_yid + adj_y) * shr_width + (l_xid + adj_x)] = A[(g_yid + adj_y) * a_width + (g_xid + adj_x)];
         barrier(CLK_LOCAL_MEM_FENCE);
-	for(int i = 0; i < 100000000; i++){
+//	for(int i = 0; i < 3; i++){
 		B[g_yid * b_width + g_xid] = shr_A[(l_yid + adj_y) * shr_width + (l_xid + adj_x)]
 					   + shr_A[(l_yid + adj_y) * shr_width + (l_xid + adj_x + idx_ofst_x1)]
 					   + shr_A[(l_yid + adj_y) * shr_width + (l_xid + adj_x + idx_ofst_x2)]
 					   + shr_A[(l_yid + adj_y + idx_ofst_y1) * shr_width + (l_xid + adj_x)]
 					   + shr_A[(l_yid + adj_y + idx_ofst_y2) * shr_width + (l_xid + adj_x)];
-	}
+//	}
 }
 

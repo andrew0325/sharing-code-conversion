@@ -1,8 +1,8 @@
-#define idx_ofst_x1 111
-#define idx_ofst_x2 17
-#define idx_ofst_x3 0
-#define LENGTH 2000
-#define local_sz 200
+#define idx_ofst_x1 0
+#define idx_ofst_x2 1
+#define idx_ofst_x3 2
+#define LENGTH (4096*1024)
+#define local_sz 256
 #define abs_diff(X, Y) (((X) > (Y))? ((X) -(Y)):((Y) - (X)))
 #define abs_diff(X, Y) (((X) > (Y))? ((X) -(Y)):((Y) - (X)))
 #define max2(X, Y) (((X) > (Y))? (X):(Y))
@@ -14,11 +14,11 @@
 __kernel void stencil(__global int *A, __global int *B)
 {
 	int xid = get_global_id(0);
-	for(int i = 0; i < 100000000; i++){
+//	for(int i = 0; i < 100; i++){
 		B[xid] =  A[1 * xid + idx_ofst_x1] 
 			+ A[1 * xid + idx_ofst_x2]
 			+ A[1 * xid + idx_ofst_x3];
-	}
+//	}
 }
 
 __kernel void stencil_sharing(__global int *A, __global int *B, __local int *shr_A)
@@ -44,9 +44,9 @@ __kernel void stencil_sharing(__global int *A, __global int *B, __local int *shr
                 }
 	}
         barrier(CLK_LOCAL_MEM_FENCE);
-	for(int i = 0; i < 100000000; i++){
+//	for(int i = 0; i < 100; i++){
 		B[g_xid] = shr_A[l_xid] 
 			 + shr_A[l_xid + ofst_diff_mid]
 			 + shr_A[l_xid + ofst_diff_max];
-	}
+//	}
 }

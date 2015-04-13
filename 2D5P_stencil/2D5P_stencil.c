@@ -17,10 +17,10 @@
 #define max3(X, Y, Z) ((max2((X), (Y))) > (Z)? (max2((X), (Y))):(Z))
 #define min3(X, Y, Z) ((min2((X), (Y))) < (Z)? (min2((X), (Y))):(Z))
 #define mid3(X, Y, Z) ((min2((X), (Y))) < (Z)? (max2((X), (Y))):(max2((min2((X), (Y))), (Z))))
-#define b_width 120
-#define b_height 120
-#define l_width 20
-#define l_height 20
+#define b_width 1024
+#define b_height 1024
+#define l_width 16
+#define l_height 16
 #define a_height (b_height + (abs_diff(idx_ofst_y1, idx_ofst_y2)))
 #define a_width (b_width + (abs_diff(idx_ofst_x1, idx_ofst_x2)))
 #define abs(X) (((X) < 0)? (0 - (X)):(X))
@@ -44,6 +44,9 @@ int main() {
    cl_program program;
    cl_kernel kernel_basic;
    cl_kernel kernel_sharing;
+   cl_event event_basic;
+   cl_event event_sharing;
+   cl_ulong start_basic, end_basic, start_sharing, end_sharing;
    size_t global_size[2] = {b_height, b_width};
    size_t local_size[2] = {l_height, l_width};
    size_t program_size, log_size;
@@ -91,7 +94,7 @@ int main() {
    }
    
    //Create Queue 
-   queue = clCreateCommandQueue(context, device, 0, &err);
+   queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
    if(err < 0){
         perror("Couldn't create the Queue.");
         exit(1);
@@ -158,49 +161,26 @@ int main() {
            perror("Couldn't create a multiplication Kernel");
            exit(1);
    }
-               
-   if(l_width > (abs_diff(idx_ofst_x1, idx_ofst_x2)) && l_height > (abs_diff(idx_ofst_y1, idx_ofst_y2))){
+//   if(l_width > (abs_diff(idx_ofst_x1, idx_ofst_x2)) 
+//      && l_height > (abs_diff(idx_ofst_y1, idx_ofst_y2))){
 	   err = clSetKernelArg(kernel_sharing, 0, sizeof(cl_mem), &a_buffer);
-		printf("Sharing Kernel\n");
-	   if(err < 0){
-	        perror("Couldn't set an argument for the multiplication kernel_basic 0");
-	        exit(1);
-	   }
 	   err |= clSetKernelArg(kernel_sharing, 1, sizeof(cl_mem), &b_buffer);
-	   if(err < 0){
-	           perror("Couldn't set an argument for the multiplication kernel_basic 1");
-                   exit(1);
-	    }
 	   err |= clSetKernelArg(kernel_sharing, 2, sizeof(int) * (shr_width) * (shr_height), NULL);
+   	   err |= clEnqueueNDRangeKernel(queue, kernel_sharing, 2, NULL, global_size, local_size, 0, NULL, &event_sharing);
 	   if(err < 0){
-	           perror("Couldn't set an argument for the multiplication kernel_basic 2");
-                   exit(1);
-	    }
-   	    err = clEnqueueNDRangeKernel(queue, kernel_sharing, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	    if(err < 0){
 	        perror("Couldn't enqueue the multiplication kernel_sharing.");
-                printf("err: %d\n", err);
-	        exit(1);
-	    }
-   }
-   else{
-		printf("Non-haring Kernel\n");
-	   err = clSetKernelArg(kernel_basic, 0, sizeof(cl_mem), &a_buffer);
-	   if(err < 0){
-	        perror("Couldn't set an argument for the multiplication kernel_basic");
 	        exit(1);
 	   }
+//   }
+//   else{
+	   err = clSetKernelArg(kernel_basic, 0, sizeof(cl_mem), &a_buffer);
 	   err |= clSetKernelArg(kernel_basic, 1, sizeof(cl_mem), &b_buffer);
+   	   err |= clEnqueueNDRangeKernel(queue, kernel_basic, 2, NULL, global_size, local_size, 0, NULL, &event_basic);
 	   if(err < 0){
-	           perror("Couldn't set an argument for the multiplication kernel_basic");
-                   exit(1);
-	    }
-   	    err = clEnqueueNDRangeKernel(queue, kernel_basic, 2, NULL, global_size, local_size, 0, NULL, NULL);
-	    if(err < 0){
 	        perror("Couldn't enqueue the multiplication kernel_basic.");
 	        exit(1);
-	    }
-   }
+	   }
+  // }
 
    //Read output buffer
    err = clEnqueueReadBuffer(queue, b_buffer, CL_TRUE, 0, sizeof(int) * (b_height) * (b_width), check_mat, 0, NULL, NULL);
@@ -222,6 +202,13 @@ int main() {
 		 }
 	}
    }
+   clGetEventProfilingInfo(event_basic, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_basic, NULL);
+   clGetEventProfilingInfo(event_basic, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_basic, NULL);
+   clGetEventProfilingInfo(event_sharing, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_sharing, NULL);
+   clGetEventProfilingInfo(event_sharing, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_sharing, NULL);
+   printf("Basic Stencil Execution Time: %lf\n", (double)((double)(end_basic - start_basic) / 1e9));
+   printf("Sharing Stencil Execution Time: %lf\n", (double)((double)(end_sharing - start_sharing) / 1e9));
+
    if(check)
       printf("basic check succeed.\n");
    else

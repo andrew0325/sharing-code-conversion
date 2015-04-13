@@ -1,0 +1,9 @@
+# OPENCL_PROFILE_LOG_VERSION 2.0
+# OPENCL_DEVICE 0 Tesla C2050
+# OPENCL_CONTEXT 1
+# TIMESTAMPFACTOR 13c67a9426cd7eaa
+method,gputime,cputime,occupancy
+method=[ memcpyHtoDasync ] gputime=[ 801.696 ] cputime=[ 843.570 ] 
+method=[ stencil_sharing ] gputime=[ 280.768 ] cputime=[ 10.257 ] occupancy=[ 1.000 ] 
+method=[ stencil ] gputime=[ 199.968 ] cputime=[ 3.210 ] occupancy=[ 1.000 ] 
+method=[ memcpyDtoHasync ] gputime=[ 1269.440 ] cputime=[ 1953.621 ] 
