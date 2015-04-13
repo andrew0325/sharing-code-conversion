@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define PROGRAM_FILE "1D3P_stencil.cl"
-#define BASIC "stencil_sharing"
+#define KERNEL_BASIC "stencil"
+#define KERNEL_SHARING "stencil_sharing"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +18,7 @@
 #define max3(X, Y, Z) ((max2((X), (Y))) > (Z)? (max2((X), (Y))):(Z))
 #define min3(X, Y, Z) ((min2((X), (Y))) < (Z)? (min2((X), (Y))):(Z))
 #define mid3(X, Y, Z) ((min2((X), (Y))) < (Z)? (max2((X), (Y))):(max2((min2((X), (Y))), (Z))))
+#define shr_sz (local_sz + (max3(idx_ofst_x1, idx_ofst_x2, idx_ofst_x3)) - (min3(idx_ofst_x1, idx_ofst_x2, idx_ofst_x3)))
 
 #ifdef MAC
 #include <OpenCL/cl.h>
@@ -31,7 +33,8 @@ int main() {
    cl_context context;
    cl_command_queue queue;
    cl_program program;
-   cl_kernel kernel;
+   cl_kernel kernel_basic;
+   cl_kernel kernel_sharing;
    size_t global_size[1] = {LENGTH};
    size_t local_size[1] = {local_sz};
    size_t program_size, log_size;
@@ -130,31 +133,61 @@ int main() {
         exit(1);
    }
    
-   kernel = clCreateKernel(program, BASIC, &err); 
+   kernel_basic = clCreateKernel(program, KERNEL_BASIC, &err); 
+   if(err < 0){
+           perror("Couldn't create a multiplication Kernel");
+           exit(1);
+   }
+   kernel_sharing = clCreateKernel(program, KERNEL_SHARING, &err); 
    if(err < 0){
            perror("Couldn't create a multiplication Kernel");
            exit(1);
    }
                          
    //Create arguments for multiplication function
-   err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &a_buffer);
-   if(err < 0){
-        perror("Couldn't set an argument for the multiplication kernel");
-        exit(1);
-   }
-   err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &b_buffer);
-   if(err < 0){
-           perror("Couldn't set an argument for the multiplication kernel");
+   int max_ofst = (max3(idx_ofst_x1, idx_ofst_x2, idx_ofst_x3));
+   int min_ofst = (min3(idx_ofst_x1, idx_ofst_x2, idx_ofst_x3));
+   int ofst_diff_max = (abs_diff(min_ofst, max_ofst));
+   if(local_sz < ofst_diff_max){
+	   err = clSetKernelArg(kernel_basic, 0, sizeof(cl_mem), &a_buffer);
+	   if(err < 0){
+	        perror("Couldn't set an argument for the multiplication kernel_basic");
+	        exit(1);
+	   }
+	   err |= clSetKernelArg(kernel_basic, 1, sizeof(cl_mem), &b_buffer);
+	   if(err < 0){
+	           perror("Couldn't set an argument for the multiplication kernel_basic");
                    exit(1);
-    }
-    
-   //Enqueue multiplication kernel
-   err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_size, local_size, 0, NULL, NULL);
-   if(err < 0){
-        perror("Couldn't enqueue the multiplication kernel.");
-        exit(1);
+	    }
+   	    err = clEnqueueNDRangeKernel(queue, kernel_basic, 1, NULL, global_size, local_size, 0, NULL, NULL);
+	    if(err < 0){
+	        perror("Couldn't enqueue the multiplication kernel_basic.");
+	        exit(1);
+	    }
    }
-
+   else{
+	   err = clSetKernelArg(kernel_sharing, 0, sizeof(cl_mem), &a_buffer);
+	   if(err < 0){
+	        perror("Couldn't set an argument for the multiplication kernel_basic 0");
+	        exit(1);
+	   }
+	   err |= clSetKernelArg(kernel_sharing, 1, sizeof(cl_mem), &b_buffer);
+	   if(err < 0){
+	           perror("Couldn't set an argument for the multiplication kernel_basic 1");
+                   exit(1);
+	    }
+	   err |= clSetKernelArg(kernel_sharing, 2, sizeof(int) * shr_sz, NULL);
+	   if(err < 0){
+	           perror("Couldn't set an argument for the multiplication kernel_basic 1");
+                   exit(1);
+	    }
+   	    err = clEnqueueNDRangeKernel(queue, kernel_sharing, 1, NULL, global_size, local_size, 0, NULL, NULL);
+	    if(err < 0){
+	        perror("Couldn't enqueue the multiplication kernel_basic.");
+	        exit(1);
+	    }
+   }
+    
    //Read output buffer
    err = clEnqueueReadBuffer(queue, b_buffer, CL_TRUE, 0, sizeof(int)*LENGTH, check_mat, 0, NULL, NULL);
    if(err < 0){
@@ -192,7 +225,8 @@ int main() {
         perror("Fail to release C buffer.");
         exit(1);
    }
-   clReleaseKernel(kernel);
+   clReleaseKernel(kernel_basic);
+   clReleaseKernel(kernel_sharing);
    clReleaseCommandQueue(queue);
    clReleaseProgram(program);
    clReleaseContext(context);
